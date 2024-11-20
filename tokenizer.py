@@ -1,10 +1,14 @@
 from enum import Enum
+from exceptions import TokenizationException
 
 
+# Enum representing the types of tokens the tokenizer can recognize
 class TokenType(Enum):
     SELECT = "SELECT"
     FROM = "FROM"
     WHERE = "WHERE"
+    ORDER = "ORDER"
+    BY = "BY"
     ORDER_BY = "ORDER BY"
     LIMIT = "LIMIT"
     ASC = "ASC"
@@ -15,99 +19,240 @@ class TokenType(Enum):
     GREATER = "GREATER"
     LESS = "LESS"
     EQUAL = "EQUAL"
-    GEQ = "GEQ"
-    LEQ = "LEQ"
-    ASTRIC = "ASTRIC"
+    GEQ = "GEQ"  # Greater than or equal to
+    LEQ = "LEQ"  # Less than or equal to
     PLUS = "PLUS"
     MINUS = "MINUS"
-    STRING = "STRING"
-    NUMBER = "NUMBER"
-    LITERAL = "LITERAL"
-    SOURCE = "SOURCE"
+    ASTERISK = "ASTERISK"  # Multiplication operator (*)
+    DIV = "DIV"  # Division operator (/)
+    STRING = "STRING"  # String literal
+    NUMBER = "NUMBER"  # Numeric literal
+    COLUMN_PH = "COLUMN PH"  # Column placeholder (e.g., identifiers like column names)
+    SOURCE = "SOURCE"  # Source name (e.g., table or database)
+    SEMI_COLON = "SEMI_COLON"  # Semicolon (end of query)
+    UNSPEC = ""  # Unspecified type for initial token processing
 
 
+# Token class representing a unit of the query with type, position, and optional value
 class Token:
-    def __init__(self, type: TokenType, value, index: int):
-        self.type = type
-        self.value: int | str = value
-        self.index = index
+    def __init__(self, type: TokenType, index: int, value: str | int | None = None):
+        self.type: TokenType = type  # Type of the token
+        self.index: int = index  # Position of the token in the query
+        self.value: int | str | None = value  # Value of the token (if applicable)
+
+    # Equality operator (==)
+    def __eq__(self, other):
+        if not isinstance(other, Token):
+            return NotImplemented
+        return (
+            self.type == other.type
+            and self.value == other.value
+            and self.index == other.index
+        )
+
+    # Inequality operator (!=)
+    def __ne__(self, other):
+        if not isinstance(other, Token):
+            return NotImplemented
+        return not self.__eq__(other)
 
     def __repr__(self):
-        return f"Token(type={self.type}, value={self.value}, index={self.index})"
+        if self.value:
+            return f"Token(type={self.type}, value={self.value}, index={self.index})"
+        return f"Token(type={self.type}, index={self.index})"
 
 
+# Tokenizer class for breaking down a query into tokens
 class Tokenizer:
-    def __init__(self):
-        self.tokens: list[Token] = []
-        self.index: int = 0
+    def __init__(self, query: str | None = None):
+        self.tokens: list[Token] = []  # List of generated tokens
+        self.index: int = 0  # Current position in the token list
+        self.query: str | None = query  # SQL-like query to be tokenized
 
-    def tokenize(self, query: str) -> list[Token]:
-        pass
-
-    def next_token(self):
-        pass
-
-
-# TODO move it to class modify the tokenize function to handle strings like 'this string'
-def tokenize(query):
-    rtokens = []
-    tokens = query.split(" ")
-    for i in range(len(tokens)):
-        match tokens[i].casefold():
-            case "select":
-                rtokens.append(Token(TokenType.SELECT, "select", i))
-            case "from":
-                rtokens.append(Token(TokenType.FROM, "from", i))
-            case "where":
-                rtokens.append(Token(TokenType.WHERE, "where", i))
-            case "order":
-                if i + 1 < len(tokens) and tokens[i + 1].casefold() == "by":
-                    rtokens.append(Token(TokenType.ORDER_BY, "order by", i))
-                else:
-                    raise RuntimeError(f"did you mean 'order by' ? at {i}")
-            case "limit":
-                rtokens.append(Token(TokenType.LIMIT, "limit", i))
-            case "asc":
-                rtokens.append(Token(TokenType.ASC, "asc", i))
-            case "desc":
-                rtokens.append(Token(TokenType.DESC, "desc", i))
-            case "and":
-                rtokens.append(Token(TokenType.AND, "and", i))
-            case "or":
-                rtokens.append(Token(TokenType.OR, "or", i))
-            case "not":
-                rtokens.append(Token(TokenType.NOT, "not", i))
-            case "<":
-                rtokens.append(Token(TokenType.LESS, "<", i))
-            case ">":
-                rtokens.append(Token(TokenType.GREATER, ">", i))
-            case "=":
-                rtokens.append(Token(TokenType.EQUAL, "=", i))
-            case "<=":
-                rtokens.append(Token(TokenType.LEQ, "<=", i))
-            case ">=":
-                rtokens.append(Token(TokenType.GEQ, ">=", i))
-            case "*":
-                rtokens.append(Token(TokenType.ASTRIC, "*", i))
-            case _:
-                if tokens[i].startswith("'") and tokens[i].endswith("'"):
-                    rtokens.append(Token(TokenType.STRING, tokens[i][1:-1], i))
-                elif tokens[i].isdigit():
-                    rtokens.append(Token(TokenType.NUMBER, int(tokens[i]), i))
-                elif "." in tokens[i]:
-                    rtokens.append(Token(TokenType.SOURCE, tokens[i], i))
-                else:
-                    if tokens[i][-1] == ",":
-                        rtokens.append(Token(TokenType.LITERAL, tokens[i][:-1], i))
+    # Create a single atomic token from a string and add it to the token list
+    def _make_atomic_token(
+        self, token: str | int, st_idx: int, type: TokenType = TokenType.UNSPEC
+    ):
+        if len(token) == 0:
+            return  # Ignore empty tokens
+        if type == TokenType.UNSPEC:
+            # Case-insensitive matching for keywords and symbols
+            match token.casefold():
+                case "select":
+                    self.tokens.append(Token(TokenType.SELECT, st_idx))
+                case "from":
+                    self.tokens.append(Token(TokenType.FROM, st_idx))
+                case "where":
+                    self.tokens.append(Token(TokenType.WHERE, st_idx))
+                case "order":
+                    self.tokens.append(Token(TokenType.ORDER, st_idx))
+                case "by":
+                    self.tokens.append(Token(TokenType.BY, st_idx))
+                case "limit":
+                    self.tokens.append(Token(TokenType.LIMIT, st_idx))
+                case "asc":
+                    self.tokens.append(Token(TokenType.ASC, st_idx))
+                case "desc":
+                    self.tokens.append(Token(TokenType.DESC, st_idx))
+                case "and":
+                    self.tokens.append(Token(TokenType.AND, st_idx))
+                case "or":
+                    self.tokens.append(Token(TokenType.OR, st_idx))
+                case "not":
+                    self.tokens.append(Token(TokenType.NOT, st_idx))
+                case ">":
+                    self.tokens.append(Token(TokenType.GREATER, st_idx))
+                case "<":
+                    self.tokens.append(Token(TokenType.LESS, st_idx))
+                case "=":
+                    self.tokens.append(Token(TokenType.EQUAL, st_idx))
+                case "+":
+                    self.tokens.append(Token(TokenType.PLUS, st_idx))
+                case "-":
+                    self.tokens.append(Token(TokenType.MINUS, st_idx))
+                case "/":
+                    self.tokens.append(Token(TokenType.DIV, st_idx))
+                case "*":
+                    self.tokens.append(Token(TokenType.ASTERISK, st_idx))
+                case ";":
+                    self.tokens.append(Token(TokenType.SEMI_COLON, st_idx))
+                case _:
+                    # Handle column placeholders and trailing commas
+                    if token.endswith(","):
+                        self.tokens.append(
+                            Token(TokenType.COLUMN_PH, st_idx, value=token[:-1])
+                        )
                     else:
-                        rtokens.append(Token(TokenType.LITERAL, tokens[i], i))
+                        self.tokens.append(
+                            Token(TokenType.COLUMN_PH, st_idx, value=token)
+                        )
+        elif type == TokenType.STRING or type == TokenType.NUMBER:
+            # Add a token with a specified type and value
+            self.tokens.append(Token(type=type, index=st_idx, value=token))
+        else:
+            # Raise an exception for unrecognized tokens
+            raise TokenizationException(f"Unrecognized token at {st_idx}")
 
-    return rtokens
+    # Combine atomic tokens into meaningful composite tokens
+    def _combine_atomics(self):
+        tokens: list[Token] = []
+        sz: int = len(self.tokens)
+        i: int = 0
+        while i < sz:
+            if self.tokens[i].type == TokenType.ORDER:
+                if i + 1 < sz and self.tokens[i + 1].type == TokenType.BY:
+                    # Combine 'ORDER BY' into a single token
+                    tokens.append(Token(TokenType.ORDER_BY, self.tokens[i].index))
+                    i += 2
+                    continue
+                else:
+                    raise TokenizationException(
+                        f"Token 'ORDER' must be followed by 'BY' at {self.tokens[i].index}"
+                    )
+            elif self.tokens[i].type == TokenType.GREATER:
+                if i + 1 < sz and self.tokens[i + 1].type == TokenType.EQUAL:
+                    # Combine '>=' into a single token
+                    tokens.append(Token(TokenType.GEQ, self.tokens[i].index))
+                    i += 2
+                    continue
+                else:
+                    tokens.append(self.tokens[i])
+            elif self.tokens[i].type == TokenType.LESS:
+                if i + 1 < sz and self.tokens[i + 1].type == TokenType.EQUAL:
+                    # Combine '<=' into a single token
+                    tokens.append(Token(TokenType.LEQ, self.tokens[i].index))
+                    i += 2
+                    continue
+                else:
+                    tokens.append(self.tokens[i])
+            elif (
+                i - 1 >= 0
+                and self.tokens[i].type == TokenType.COLUMN_PH
+                and self.tokens[i - 1].type == TokenType.FROM
+            ):
+                # Treat column placeholders after 'FROM' as sources
+                self.tokens[i].type = TokenType.SOURCE
+                tokens.append(self.tokens[i])
+            else:
+                tokens.append(self.tokens[i])
+            i += 1
+
+        self.tokens.clear()
+        self.tokens = tokens.copy()
+
+    # Tokenize a given query string into a list of tokens
+    def tokenize(self, query: str | None = None) -> None:
+        token: str = ""
+        i: int = 0
+        if self.query == None and query == None or (query != None and len(query) == 0):
+            raise TokenizationException("Unspecified query")
+        if query == None:
+            query = self.query
+        st_index: int = 0
+        while i <= len(query):
+            if (
+                i == len(query)
+                or query[i] == " "
+                or query[i] == "\n"
+                or query[i] == ";"
+            ):
+                # Finalize the current token
+                if token.isdigit():
+                    self._make_atomic_token(token, st_index, TokenType.NUMBER)
+                elif token == ">=" or token == "<=":
+                    self._make_atomic_token(token[0], st_index)
+                    self._make_atomic_token(token[1], st_index)
+                else:
+                    self._make_atomic_token(token, st_index)
+
+                # Add semicolon as a separate token
+                if i < len(query) and query[i] == ";":
+                    self._make_atomic_token(query[i], i)
+                token = ""
+                i += 1
+                st_index = i
+                continue
+            if query[i] == "'":
+                # Handle string literals enclosed in single quotes
+                i += 1
+                st_idx = i
+                while i < len(query) and query[i] != "'":
+                    token += query[i]
+                    i += 1
+                if i == len(query) or query[i] != "'":
+                    raise TokenizationException(f"Unterminated string at {st_idx}")
+                self._make_atomic_token(token, st_idx, TokenType.STRING)
+                token = ""
+            else:
+                token += query[i]
+            i += 1
+        self._combine_atomics()
+
+    # Retrieve the next token from the token list
+    def next_token(self) -> Token | None:
+        if self.index < len(self.tokens):
+            rt: Token = self.tokens[self.index]
+            self.index += 1
+            return rt
+        raise IndexError("No tokens left")
+
+    # Check if there are more tokens to process
+    def has_next(self) -> bool:
+        return self.index < len(self.tokens)
+
+    # Look ahead at a specific position in the token list
+    def look_ahead(self, offset: int) -> Token:
+        if self.index + offset < len(self.tokens):
+            return self.tokens[self.index + offset]
+        raise IndexError(f"No tokens left after lookahead index {self.index + offset}")
 
 
-# query = "select title, label, user from repo.user.issues where status = 'merged' and value = 3 order by value desc limit 5"
+# query = "select title, label, user from repo.user.issues where status = 'merged' and value >= 3 order by value desc limit 5;"
+# # print(len(query))
 
-# tokens = tokenize(query)
+# tokenizer: Tokenizer = Tokenizer(query)
 
-# for token in tokens:
-#     print(token)
+# tokenizer.tokenize()
+
+# while tokenizer.has_next():
+#     print(tokenizer.next_token())
