@@ -1,9 +1,11 @@
 from expression import *
+from tokenizer import *
 
 
+# pratt parser to parse expressions
 class Parser:
-    def __init__(self, tokens: list[Token]):
-        self.tokens: list[Token] = tokens
+    def __init__(self):
+        self.tokens: list[Token] = []
         self.index: int = 0
         self.precedence: dict[str, int] = {
             "OR": 1,
@@ -16,6 +18,9 @@ class Parser:
             "GEQ": 4,
         }
 
+    def add_token(self, token: Token):
+        self.tokens.append(token)
+
     def advance(self) -> Token:
         token: Token = self.tokens[self.index]
         self.index += 1
@@ -27,24 +32,27 @@ class Parser:
     def get_precedence(self, type: TokenType) -> int:
         return self.precedence[type.value]
 
+    # for prefix operators (not, etc.) and literals
     def nud(self, token: Token) -> Expression:
-        if token.type == TokenType.LITERAL:
-            return ValueExpression(token.value, ExpressionType.STR)
+        if token.type == TokenType.COLUMN_PH:
+            return LiteralExpression(token.value, ExpressionType.STR)
         elif token.type == TokenType.NOT:
             right = self.parse(self.get_precedence(TokenType.NOT))
             return UnaryExpression(token.type, right)
         elif token.type == TokenType.NUMBER:
-            return ValueExpression(token.value, ExpressionType.INT)
+            return LiteralExpression(token.value, ExpressionType.INT)
         elif token.type == TokenType.STRING:
-            return ValueExpression(token.value, ExpressionType.STR)
+            return LiteralExpression(token.value, ExpressionType.STR)
         else:
             raise RuntimeError(f"Unexpected token in nud: {token.type}")
 
+    # for infix operators (and, or, +, -, *, /)
     def led(self, token: Token, left: Expression) -> Expression:
         precedence = self.get_precedence(token.type)
         right: Expression = self.parse(precedence)
         return BinaryExpression(left, token.type, right)
 
+    # rbp (Right Binding Power aka. Precedence)
     def parse(self, rbp: int = 0) -> Expression:
         token: Token = self.advance()
         left: Expression = self.nud(token)
@@ -60,17 +68,21 @@ class Parser:
 
 # for each row fetch col1 and col2 then put them in the query then execute it
 # it it return true include that row else do not include it
-query = "col2 = 'col' and row2 = 'row one'"
+# query = "10 > 12 or 11 = 11"
 # query = "col2 = 'something' and col2 = 'something else'"
 
 
-tokens = tokenize(query)
+# tokenizer: Tokenizer = Tokenizer(query)
+# # tokenizer.tokenize()
 
-# for token in tokens:
-#     print(token)
+# tokens: list[Token] = []
 
-parser = Parser(tokens)
+# parser: Parser = Parser()
 
-left = parser.parse()
+# while tokenizer.has_next():
+#     parser.add_token(tokenizer.next_token())
 
-print(left.eval())
+
+# left = parser.parse()
+
+# print(left.eval())

@@ -68,6 +68,9 @@ class Tokenizer:
         self.tokens: list[Token] = []  # List of generated tokens
         self.index: int = 0  # Current position in the token list
         self.query: str | None = query  # SQL-like query to be tokenized
+        if not query:
+            raise TokenizationException("unspecified query not allowed")
+        self.tokenize()
 
     # Create a single atomic token from a string and add it to the token list
     def _make_atomic_token(
@@ -247,12 +250,12 @@ class Tokenizer:
         raise IndexError(f"No tokens left after lookahead index {self.index + offset}")
 
 
-# query = "select title, label, user from repo.user.issues where status = 'merged' and value >= 3 order by value desc limit 5;"
-# # print(len(query))
+query = "select title, label, user from repo.user.issues where status = 'merged' and value >= 3 order by value desc limit 5;"
+# print(len(query))
 
-# tokenizer: Tokenizer = Tokenizer(query)
+tokenizer: Tokenizer = Tokenizer(query)
 
-# tokenizer.tokenize()
+tokenizer.tokenize()
 
-# while tokenizer.has_next():
-#     print(tokenizer.next_token())
+while tokenizer.has_next():
+    print(tokenizer.next_token())

@@ -1,5 +1,5 @@
 from enum import Enum
-from tokenizer import TokenType, Token, tokenize
+from tokenizer import *
 
 
 class ExpressionType(Enum):
@@ -16,7 +16,7 @@ class Expression:
         pass
 
 
-class ValueExpression(Expression):
+class LiteralExpression(Expression):
     def __init__(self, value: str | int, type: ExpressionType):
         self.value = value
         self.type = type
@@ -61,7 +61,7 @@ class BinaryExpression(Expression):
                 return l + r
             case TokenType.MINUS:
                 return l - r
-            case TokenType.ASTRIC:
+            case TokenType.ASTERISK:
                 return l * r
             case TokenType.OR:
                 return l or r
