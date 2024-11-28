@@ -1,14 +1,9 @@
-from github import (
-    NamedUser,
-    Repository,
-    Github,
-    UnknownObjectException,
-    Auth,
-)
+from github import NamedUser, Repository, Github, UnknownObjectException, Auth
 from globals import inner_entities
 from enum import Enum
 from tokenizer import Token
 import os
+from datetime import datetime
 
 
 auth: Auth = Auth.Token(os.getenv("GH_TOKEN"))
@@ -115,18 +110,26 @@ class Context:
             case SourceType.ISSUES | SourceType.PULL_REQUESTS | SourceType.COMMITS:
                 repo = self.git.get_repo(f"{self.user}/{self.repo}")
                 if self.source_type == SourceType.ISSUES:
-                    for issue in repo.get_issues()[
+                    for issue in repo.get_issues(state="all")[
                         self.current_read : self.current_read + self.max_limit
                     ]:
                         iss: dict = {
                             "id": issue.id,
+                            "number": issue.number,
                             "title": issue.title,
                             "state": issue.state,
                             "milestone": issue.milestone,
                             "labels": issue.labels,
                             "user": issue.user.login,
-                            "closed_at": issue.closed_at,
-                            "closed_by": issue.closed_by,
+                            "created_at": issue.created_at.strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            ),
+                            "closed_at": (
+                                issue.closed_at.strftime("%Y-%m-%d %H:%M:%S")
+                                if issue.state == "closed"
+                                else "N/A"
+                            ),
+                            "closed_by": issue.closed_by.login,
                         }
                         self.git_records.append(iss)
                         self.current_read += 1
@@ -135,24 +138,32 @@ class Context:
                         self.current_read : self.current_read + self.max_limit
                     ]:
                         com: dict = {
+                            "sha": commit.sha,
                             "author": commit.author.login,
                             "files": commit.files,
-                            "sha": commit.sha,
                         }
                         self.git_records.append(com)
                         self.current_read += 1
                 elif self.source_type == SourceType.PULL_REQUESTS:
-                    for pr in repo.get_pulls()[
+                    for pr in repo.get_pulls(state="all")[
                         self.current_read : self.current_read + self.max_limit
                     ]:
                         pull: dict = {
-                            "assignee": pr.user.login,
-                            "changed_files": pr.changed_files,
-                            "closed_at": pr.closed_at,
+                            "id": pr.id,
+                            "number": pr.number,
+                            "title": pr.title,
                             "state": pr.state,
                             "milestone": pr.milestone,
-                            "title": pr.title,
-                            "created_at": pr.created_at,
+                            "user": pr.user.login,
+                            "changed_files": pr.changed_files,
+                            "created_at": pr.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                            "merged": "true" if pr.merged else "false",
+                            "merged_at": (
+                                (pr.merged_at.strftime("%Y-%m-%d %H:%M:%S"))
+                                if pr.merged
+                                else "N/A"
+                            ),
+                            "merged_by": pr.merged_by.login if pr.merged else "None",
                         }
                         self.git_records.append(pull)
                         self.current_read += 1
@@ -168,7 +179,7 @@ class Context:
                         "name": repo.name,
                         "open_issues_count": repo.open_issues_count,
                         "private": repo.private,
-                        "created_at": repo.created_at,
+                        "created_at": repo.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                         "description": repo.description,
                         "forks_count": repo.forks_count,
                         "full_name": repo.full_name,

@@ -68,9 +68,13 @@ class Tokenizer:
         self.tokens: list[Token] = []  # List of generated tokens
         self.index: int = 0  # Current position in the token list
         self.query: str | None = query  # SQL-like query to be tokenized
-        if not query:
-            raise TokenizationException("unspecified query not allowed")
-        self.tokenize()
+        if self.query != None:
+            self.tokenize()
+
+    def reset(self):
+        self.tokens.clear()
+        self.index = 0
+        self.query = None
 
     # Create a single atomic token from a string and add it to the token list
     def _make_atomic_token(

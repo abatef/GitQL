@@ -5,101 +5,71 @@ from expression import Expression
 import time
 from beautifultable import BeautifulTable
 
-# Query to process
-query = (
-    "select * from redis.redis.issues where state = 'open' and user = 'guybe7' limit 3"
-)
 
-# Initialize timing and context
-start_time = time.time_ns()
-tokenizing_start = time.time_ns()
+class GitQL:
+    def __init__(self):
+        self.tokenizer: Tokenizer = Tokenizer()
+        self.parser: Parser = Parser()
+        self.ctx: Context = Context()
 
-# Tokenizing phase
-tokenizer = Tokenizer(query)
-tokenizing_end = time.time_ns()
+    def initialize(self, query: str):
+        self.tokenizer.tokenize(query)
+        while self.tokenizer.has_next():
+            token = self.tokenizer.current_token()
+            if token.type == TokenType.SOURCE:
+                self.ctx.set_sources(self.tokenizer.next_token())
+            elif token.type == TokenType.LIMIT:
+                self.tokenizer.next_token()  # Skip LIMIT keyword
+                self.ctx.set_limit(int(self.tokenizer.next_token().value))
+            elif token.type == TokenType.WHERE:
+                self.tokenizer.next_token()  # Skip WHERE keyword
+                while (
+                    self.tokenizer.has_next()
+                    and self.tokenizer.current_token().type != TokenType.LIMIT
+                ):
+                    self.parser.add_token(self.tokenizer.next_token())
+            else:
+                self.tokenizer.next_token()
 
-# Initialize parser and context
-parser = Parser()
-ctx = Context()
+    def reset(self):
+        self.tokenizer.reset()
+        self.parser.reset()
+        self.ctx = Context()
 
-# Record tokenizing time
-timings = {"Tokenizing Time": tokenizing_end - tokenizing_start}
+    def print(self, time):
+        table: BeautifulTable = BeautifulTable(maxwidth=4000)
+        if self.ctx.query_results:
+            table.columns.header = self.ctx.query_results[0].keys()
 
-# Parsing phase
-parsing_start = time.time_ns()
+            for result in self.ctx.query_results:
+                table.rows.append(result.values())
 
-while tokenizer.has_next():
-    token = tokenizer.current_token()
-    if token.type == TokenType.SOURCE:
-        source_start = time.time_ns()
-        ctx.set_sources(tokenizer.next_token())
-        timings["Setting Source Time"] = time.time_ns() - source_start
-    elif token.type == TokenType.LIMIT:
-        limit_start = time.time_ns()
-        tokenizer.next_token()  # Skip LIMIT keyword
-        ctx.set_limit(int(tokenizer.next_token().value))
-        timings["Setting Limit Time"] = time.time_ns() - limit_start
-    elif token.type == TokenType.WHERE:
-        where_start = time.time_ns()
-        tokenizer.next_token()  # Skip WHERE keyword
-        while (
-            tokenizer.has_next() and tokenizer.current_token().type != TokenType.LIMIT
-        ):
-            parser.add_token(tokenizer.next_token())
-        timings["Tokens to Parser Time"] = time.time_ns() - where_start
-    else:
-        tokenizer.next_token()
+        print("\nQuery Results:")
+        print(table)
+        print(f"\nTotal Rows: {len(table.rows)}")
+        print(f"Total Time: {time}s")
 
-parsing_end = time.time_ns()
-timings["Total Token Parsing Time"] = parsing_end - parsing_start
+    def run(self):
+        while True:
+            query: str = input("GitQL> ")
+            if len(query) == 0:
+                break
 
-# Expression parsing phase
-expression_start = time.time_ns()
-expression = parser.parse()
-timings["Expression Parsing Time"] = time.time_ns() - expression_start
+            s_time = time.time()
+            self.initialize(query)
+            expr: Expression = self.parser.parse()
+            self.ctx.populate()
+            while not self.ctx.done():
+                can_select: bool = expr.eval(self.ctx)
+                if can_select:
+                    self.ctx.select_current()
+                else:
+                    self.ctx.advance()
 
-# Initial population phase
-populate_start = time.time_ns()
-ctx.populate()
-timings["Initial Population Time"] = time.time_ns() - populate_start
+            self.print(time.time() - s_time)
+            self.reset()
 
-# Evaluation phase
-eval_start = time.time_ns()
-total_eval_time = 0
-eval_count = 0
 
-while not ctx.done():
-    eval_cycle_start = time.time_ns()
-    can_select = expression.eval(ctx)
-    eval_cycle_time = time.time_ns() - eval_cycle_start
+gQL: GitQL = GitQL()
 
-    total_eval_time += eval_cycle_time
-    eval_count += 1
-
-    if can_select:
-        ctx.select_current()
-    else:
-        ctx.advance()
-
-timings["Total Evaluation Time"] = total_eval_time
-timings["Total Run Time"] = time.time_ns() - eval_start
-timings["Average Evaluation Time"] = total_eval_time / eval_count if eval_count else 0
-
-# Total execution time
-end_time = time.time_ns()
-timings["Total Execution Time"] = end_time - start_time
-
-# Print query results
-print(ctx.query_results)
-
-# Display timing metrics in a table
-table = BeautifulTable()
-table.columns.header = ["Stage", "Time (ns)"]
-
-# Add general timing metrics to the table
-for stage, time_ns in timings.items():
-    table.rows.append([stage, time_ns])
-
-# Display timing results
-print("\nTiming Results:")
-print(table)
+gQL.run()

@@ -28,6 +28,10 @@ class Parser:
         self.index += 1
         return token
 
+    def reset(self):
+        self.tokens.clear()
+        self.index = 0
+
     def current_token(self) -> Token:
         return self.tokens[self.index]
 
