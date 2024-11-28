@@ -1,10 +1,12 @@
 from enum import Enum
 from tokenizer import *
+from context import Context
 
 
 class ExpressionType(Enum):
     STR = 0
     INT = 1
+    CPH = 2
 
 
 class Expression:
@@ -12,7 +14,7 @@ class Expression:
         self.type: ExpressionType = type
         pass
 
-    def eval(self):
+    def eval(self, ctx: Context):
         pass
 
 
@@ -21,8 +23,10 @@ class LiteralExpression(Expression):
         self.value = value
         self.type = type
 
-    def eval(self):
-        return self.value
+    def eval(self, ctx: Context):
+        if self.type != ExpressionType.CPH:
+            return self.value
+        return ctx.get_value(self.value)
 
 
 class UnaryExpression(Expression):
@@ -30,9 +34,9 @@ class UnaryExpression(Expression):
         self.operator: TokenType = operator
         self.right: Expression = right
 
-    def eval(self):
+    def eval(self, ctx: Context):
         if self.operator == TokenType.NOT:
-            return not self.right.eval()
+            return not self.right.eval(ctx)
 
 
 class BinaryExpression(Expression):
@@ -41,9 +45,9 @@ class BinaryExpression(Expression):
         self.operator = operator
         self.right = right
 
-    def eval(self):
-        l: int = self.left.eval()
-        r: int = self.right.eval()
+    def eval(self, ctx: Context):
+        l: int = self.left.eval(ctx)
+        r: int = self.right.eval(ctx)
         if type(l) != type(r):
             raise RuntimeError("both operands must be of type int")
         match self.operator:

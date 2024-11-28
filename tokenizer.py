@@ -239,6 +239,9 @@ class Tokenizer:
             return rt
         raise IndexError("No tokens left")
 
+    def current_token(self) -> Token:
+        return self.tokens[self.index]
+
     # Check if there are more tokens to process
     def has_next(self) -> bool:
         return self.index < len(self.tokens)
@@ -250,12 +253,13 @@ class Tokenizer:
         raise IndexError(f"No tokens left after lookahead index {self.index + offset}")
 
 
-query = "select title, label, user from repo.user.issues where status = 'merged' and value >= 3 order by value desc limit 5;"
+# query = "select title, label, user from repo.user.issues where status = 'merged' and value >= 3 order by value desc limit 5;"
 # print(len(query))
+# e, label, user from repo.user.issues where status = 'merged' and value >= 3 order by value desc limit 5;"
+#
+# tokenizer: Tokenizer = Tokenizer(query)
 
-tokenizer: Tokenizer = Tokenizer(query)
+# tokenizer.tokenize()
 
-tokenizer.tokenize()
-
-while tokenizer.has_next():
-    print(tokenizer.next_token())
+# while tokenizer.has_next():
+# print(tokenizer.next_token())

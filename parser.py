@@ -8,6 +8,8 @@ class Parser:
         self.tokens: list[Token] = []
         self.index: int = 0
         self.precedence: dict[str, int] = {
+            "NUMBER": 0,
+            "STRING": 0,
             "OR": 1,
             "AND": 2,
             "NOT": 3,
@@ -35,7 +37,7 @@ class Parser:
     # for prefix operators (not, etc.) and literals
     def nud(self, token: Token) -> Expression:
         if token.type == TokenType.COLUMN_PH:
-            return LiteralExpression(token.value, ExpressionType.STR)
+            return LiteralExpression(token.value, ExpressionType.CPH)
         elif token.type == TokenType.NOT:
             right = self.parse(self.get_precedence(TokenType.NOT))
             return UnaryExpression(token.type, right)
@@ -68,12 +70,12 @@ class Parser:
 
 # for each row fetch col1 and col2 then put them in the query then execute it
 # it it return true include that row else do not include it
-# query = "10 > 12 or 11 = 11"
-# query = "col2 = 'something' and col2 = 'something else'"
+# query = "10 > 12 or 11 >= 11"
+# # query = "col2 = 'something' and col2 = 'something else'"
 
 
 # tokenizer: Tokenizer = Tokenizer(query)
-# # tokenizer.tokenize()
+# tokenizer.tokenize()
 
 # tokens: list[Token] = []
 
