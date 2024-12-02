@@ -38,7 +38,7 @@ class Parser:
     def get_precedence(self, type: TokenType) -> int:
         return self.precedence[type.value]
 
-    # for prefix operators (not, etc.) and literals
+    # for prefix operators (e.g. not) and literals
     def nud(self, token: Token) -> Expression:
         if token.type == TokenType.COLUMN_PH:
             return LiteralExpression(token.value, ExpressionType.CPH)
@@ -52,7 +52,7 @@ class Parser:
         else:
             raise RuntimeError(f"Unexpected token in nud: {token.type}")
 
-    # for infix operators (and, or, +, -, *, /)
+    # for infix operators (and, or, =, +, -, *, /)
     def led(self, token: Token, left: Expression) -> Expression:
         precedence = self.get_precedence(token.type)
         right: Expression = self.parse(precedence)
@@ -60,6 +60,8 @@ class Parser:
 
     # rbp (Right Binding Power aka. Precedence)
     def parse(self, rbp: int = 0) -> Expression:
+        if len(self.tokens) == 0:
+            return None
         token: Token = self.advance()
         left: Expression = self.nud(token)
 
@@ -73,7 +75,7 @@ class Parser:
 
 
 # for each row fetch col1 and col2 then put them in the query then execute it
-# it it return true include that row else do not include it
+# if it return true include that row else do not include it
 # query = "10 > 12 or 11 >= 11"
 # # query = "col2 = 'something' and col2 = 'something else'"
 
