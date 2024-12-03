@@ -53,32 +53,9 @@ GitQL supports querying data from several entities and their respective fields. 
 ### **Pull Requests** (`repo.pull_requests`)
 - `status`, `author`, `assignee`, `title`, `created_at`, `updated_at`, `merged_at`, `milestone`
 
-### **Contributors** (`repo.contributors`)
-- `name`, `username`, `contributions`, `role`, `joined_at`
-
-### **Languages** (`repo.languages`)
-- `language`, `bytes`
-
 ### **Commits** (`repo.commits`)
 - `author`, `date`, `message`, `hash`
 
-### **Milestones** (`repo.milestones`)
-- `title`, `status`, `due_date`, `closed_at`, `open_issues`, `description`
-
-### **Labels** (`repo.labels`)
-- `name`, `color`, `description`
-
-### **Releases** (`repo.releases`)
-- `tag_name`, `created_at`, `author`, `assets`, `body`
-
-### **Teams** (`org.teams`)
-- `name`, `description`, `privacy`, `members`, `repos`
-
-### **Collaborators** (`repo.collaborators`)
-- `username`, `role`, `permissions`, `added_at`
-
-### **Projects** (`repo.projects`)
-- `name`, `state`, `description`, `created_at`, `updated_at`
 
 ## Example Queries
 
